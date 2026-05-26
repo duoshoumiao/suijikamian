@@ -23,6 +23,7 @@ imgpath = os.path.join(os.path.expanduser(RES_DIR), 'img', 'benzi')
 
 @sv.on_rex(r'^(随机)卡(面)')  
 async def net_ease_cloud_word(bot,ev:CQEvent):  
+    await botev.send("好的，正在给你随机下载一张pcr卡面....")
     uid = ev.user_id  
     if not _lmt.check(uid):  
         await bot.finish(ev, '你今天抽的已经够多的了！', at_sender=True)  

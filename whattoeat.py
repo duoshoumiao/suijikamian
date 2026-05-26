@@ -21,47 +21,33 @@ sv = Service(
 _lmt = DailyNumberLimiter(99)
 imgpath = os.path.join(os.path.expanduser(RES_DIR), 'img', 'benzi')
 
-@sv.on_rex(r'^(随机)卡(面)')
-async def net_ease_cloud_word(bot,ev:CQEvent):
-    uid = ev.user_id
-    if not _lmt.check(uid):
-        await bot.finish(ev, '你今天抽的已经够多的了！', at_sender=True)
-    match = ev['match']
-    time = match.group(1).strip()
-    food = random.choice(os.listdir(imgpath))
-    name = food.split('.')
-    to_eat = f'{time}到的卡面是\n'
-    try:
-        foodimg = R.img(f'benzi/{food}').cqcode
-        to_eat += str(foodimg)
-    except Exception as e:
-        hoshino.logger.error(f'读取图片时发生错误{type(e)}')
-    await bot.send(ev, to_eat, at_sender=True)
-    _lmt.increase(uid)
-
-async def download_async(url: str, name: str):
-    resp= await aiorequests.get(url, stream=True)
-    if resp.status_code == 404:
-        raise ValueError('文件不存在')
-    content = await resp.content
-    try:
-        extension = filetype.guess_mime(content).split('/')[1]
-    except:
-        raise ValueError('不是有效文件类型')
-    abs_path = os.path.join(imgpath, f'{name}.{extension}')
-    with open(abs_path, 'wb') as f:
-        f.write(content)
-
-
-@sv.on_suffix(('添本','添加卡面'))
-async def add_food(bot,ev:CQEvent):
-    if not priv.check_priv(ev, priv.SUPERUSER):
-        return
-    food = ev.message.extract_plain_text().strip()
-    ret = re.search(r"\[CQ:image,file=(.*)?,url=(.*)\]", str(ev.message))
-    if not ret:
-        await bot.send(ev,'请附带图片~')
-        return
-    url = ret[2]
-    await download_async(url, food)
-    await bot.send(ev,'已增加~')
+@sv.on_rex(r'^(随机)卡(面)')  
+async def net_ease_cloud_word(bot,ev:CQEvent):  
+    uid = ev.user_id  
+    if not _lmt.check(uid):  
+        await bot.finish(ev, '你今天抽的已经够多的了！', at_sender=True)  
+    match = ev['match']  
+    time = match.group(1).strip()  
+      
+    max_retries = 10  
+    for attempt in range(max_retries):  
+        # Generate random card ID (4 digits)  
+        card_id = f"{random.randint(1000, 9999):04d}"  
+        # Randomly choose between 31 and 61 suffix  
+        suffix = random.choice(['31', '61'])  
+        # Construct the URL  
+        url = f'https://redive.estertion.win/card/full/{card_id}{suffix}.webp'  
+          
+        # Verify the URL exists before sending  
+        try:  
+            resp = await aiorequests.head(url, timeout=5)  
+            if resp.status_code == 200:  
+                to_eat = f'{time}到的卡面是\n[CQ:image,file={url}]'  
+                await bot.send(ev, to_eat, at_sender=True)  
+                _lmt.increase(uid)  
+                return  
+        except Exception as e:  
+            hoshino.logger.warning(f'URL验证失败: {url}, 错误: {e}')  
+            continue  
+      
+    await bot.send(ev, '卡面获取失败，请稍后再试~', at_sender=True)
